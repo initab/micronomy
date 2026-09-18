@@ -74,3 +74,22 @@ resource "aws_security_group" "ecs_tasks" {
     Name = "${local.app-name}-ecs-tasks-sg"
   }
 }
+
+# Security Group for ALB
+resource "aws_security_group" "alb_ingress" {
+  name        = "${local.app-name}-alb-ingress-sg"
+  description = "Allow inbound traffic for ALB"
+  vpc_id      = aws_vpc.micronomy-vpc.id
+
+  ingress {
+    description = "Allow HTTPS inbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${local.app-name}-alb-ingress-sg"
+  }
+}
