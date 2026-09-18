@@ -45,6 +45,14 @@ jobs:
             org.opencontainers.image.revision={{sha}}
             org.opencontainers.image.created={{commit_date 'YYYY-MM-DDTHH:mm:ss[Z]'}}
 
+      - name: Cache container layers
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/containers/storage
+          key: buildah-layers-${{ hashFiles('Dockerfile') }}
+          restore-keys: |
+            buildah-layers-
+
       - name: Build image
         id: buildah
         uses: redhat-actions/buildah-build@v2
@@ -54,6 +62,7 @@ jobs:
           containerfiles: |
             ./Dockerfile
           labels: ${{ steps.meta.outputs.labels }}
+          layers: true
 
       - name: Log in to registry
         uses: redhat-actions/podman-login@v1
