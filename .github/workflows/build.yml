@@ -19,6 +19,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      ecr-image: ${{ steps.ecr-push.outputs.image }}
 
     steps:
       - name: Checkout
@@ -82,3 +84,103 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           cosign sign --yes ${{ env.IMAGE }}@${DIGEST}
+
+      # --- Amazon ECR -------------------------------------------------------
+      # The image built above is promoted to ECR by digest, so the artifact
+      # deployed to ECS is bit-for-bit the one that was built and signed.
+
+      - name: Configure AWS credentials
+        if: github.event_name != 'schedule'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        if: github.event_name != 'schedule'
+        id: ecr-login
+        run: |
+          registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
+          aws ecr get-login-password --region "${{ vars.AWS_REGION }}" \
+            | podman login --username AWS --password-stdin "$registry"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+
+      - name: Push to Amazon ECR
+        if: github.event_name != 'schedule'
+        id: ecr-push
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          target="${REGISTRY}/${REPOSITORY}:${GITHUB_SHA}"
+
+          podman pull "${{ env.IMAGE }}@${DIGEST}"
+          podman tag "${{ env.IMAGE }}@${DIGEST}" "$target"
+          podman push "$target"
+
+          if [ "${{ github.ref }}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            podman tag "$target" "${REGISTRY}/${REPOSITORY}:latest"
+            podman push "${REGISTRY}/${REPOSITORY}:latest"
+          fi
+
+          echo "image=$target" >> "$GITHUB_OUTPUT"
+          echo "Pushed $target" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to ECS
+    needs: build
+    runs-on: ubuntu-latest
+    # Only promote to the running environment from the default branch, a
+    # release tag, or a manual run - not from the weekly rebuild or topic
+    # branches.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ||
+      startsWith(github.ref, 'refs/tags/v')
+
+    # Add required reviewers to this environment in the repository settings
+    # to turn the deployment into a manually approved step.
+    environment:
+      name: production
+      url: https://micronomy.init.se/
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Render task definition with the new image
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: deploy/aws-task-definition.json
+          container-name: micronomy
+          image: ${{ needs.build.outputs.ecr-image }}
+
+      - name: Deploy to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          cluster: ${{ vars.ECS_CLUSTER }}
+          service: ${{ vars.ECS_SERVICE }}
+          # Block until the new tasks are healthy and the old ones are gone,
+          # so a failing deployment fails the workflow instead of passing
+          # silently while ECS rolls back.
+          wait-for-service-stability: true
+          wait-for-minutes: 10
+
+      - name: Summarise
+        run: |
+          echo "Deployed \`${{ needs.build.outputs.ecr-image }}\` to ${{ vars.ECS_SERVICE }} on ${{ vars.ECS_CLUSTER }}." \
+            >> "$GITHUB_STEP_SUMMARY"
