@@ -34,12 +34,12 @@ sub validate-hours(Str $value --> Bool) is export {
 
 sub encode-query-value(Str $value --> Str) is export {
     my @parts;
-    for $value.comb -> $char {
-        my $ord = $char.ord;
+    for $value.encode('utf8').list -> $byte {
+        my $char = $byte.chr;
         if $char ~~ / <[A..Z a..z 0..9 \- . _ ~]> / {
             @parts.push($char);
         } else {
-            @parts.push('%' ~ sprintf('%02X', $ord));
+            @parts.push('%' ~ sprintf('%02X', $byte));
         }
     }
     return @parts.join;
