@@ -1,0 +1,35 @@
+# Micronomy CI/CD Pipeline - Terraform-based Infrastructure Deployment
+# GitHub Actions workflow for automated infrastructure provisioning
+# Triggered on: PR merge to main branch, manual approval required
+
+name: Deploy AWS Infrastructure 🔧
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+    paths-ignore: ['.github/CHANGELOG.md', '.gitignore']
+
+jobs:
+  terraform-plan-dev: # Stage: Plan and review changes
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials (eu-north-1)
+        uses: aws-actions/configure-aws-credentials@v2
+
+      - name: Install Terraform v1.6+ (latest with state locking)
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.0
+
+      - name: Terraform Init Backend Configuration
+        run: cd terraform/dev && terraform init
+
+      - name: Execute Terraform Plan (generate resource diff)
+        run: cd terraform/dev && terraform plan
