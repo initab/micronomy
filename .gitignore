@@ -19,3 +19,8 @@ log
 
 # test files
 test.*
+
+# terraform state
+terraform.tfstate
+.terraform/
+
