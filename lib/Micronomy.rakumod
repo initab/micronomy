@@ -10,7 +10,7 @@ use Micronomy::Demo;
 use Micronomy::Calendar;
 
 class Micronomy {
-    my $server = "https://b3iaccess.deltekenterprise.com";
+    my $server = %*ENV<MACONOMY_URL> || "https://b3iaccess.deltekenterprise.com";
     my $auth-path = "maconomy-api/auth/b3";
     my $instances-path = "maconomy-api/containers/b3/timeregistration/instances";
     my $environment-path = "/maconomy-api/environment/b3?variables";

@@ -105,6 +105,22 @@ export MICRONOMY_HOST=0.0.0.0
 raku -I lib service.raku
 ```
 
+## Configuration
+
+The service is configured through environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `MICRONOMY_HOST` | `localhost`, or `0.0.0.0` with TLS | Address to listen on |
+| `MICRONOMY_PORT` | `80`, or `443` with TLS | Port to listen on |
+| `MICRONOMY_TLS_CERT` | *(none)* | Certificate file; enables HTTPS together with the key |
+| `MICRONOMY_TLS_KEY` | *(none)* | Private key file; enables HTTPS together with the certificate |
+| `MACONOMY_URL` | `https://b3iaccess.deltekenterprise.com` | Maconomy backend to proxy to, as `<protocol>://<server>` |
+
+Setting `MACONOMY_URL` lets the same build run against a different
+Maconomy backend - a test instance or a dummy server - without changing
+the code. Only the B3 Maconomy has been tested, though.
+
 There is also a script `micronomy.sh` that handles Let's Encrypt renewal
 and rudimentary logging. You'll most likely need to customize it before
 using it.
