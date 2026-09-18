@@ -2,12 +2,11 @@ use Cro::HTTP::Router;
 use Cro::HTTP::Client;
 use Cro::WebApp::Template;
 use Cro::HTTP::Cookie;
-use URI::Encode;
-
 use Micronomy::Cache;
 use Micronomy::Common;
 use Micronomy::Demo;
 use Micronomy::Calendar;
+use Micronomy::Validation;
 
 class Micronomy {
     my $server = "https://b3iaccess.deltekenterprise.com";
@@ -538,17 +537,6 @@ class Micronomy {
             }
         } else {
             return get-demo($date);
-        }
-    }
-
-    sub fix-token(Str $token) {
-        return $token if $token eq 'demo';
-        return "" unless $token;
-        given $token.split(":")[1].chars % 4 {
-            # add mysteriously stripped padding
-            when 3 {return "$token="}
-            when 2 {return "$token=="}
-            default {return $token}
         }
     }
 
@@ -1137,10 +1125,10 @@ class Micronomy {
         $retries = 2 if %parameters<state> > 1;
         my @changes;
         for 1..7 -> $day  {
-            my $hours = %parameters{"hours-$row-$day"} || "0";
-            $hours = +$hours.subst(",", ".");
-            $hours ~~ s:g/<-[\d.]>//;
-            $hours ||= 0;
+            my $hours-value = %parameters{"hours-$row-$day"} || "0";
+            my $hours = validate-hours($hours-value)
+                ?? +$hours-value.subst(",", ".")
+                !! 0;
             my $previous = %parameters{"hidden-$row-$day"} || 0;
             if $hours ne $previous {
                 @changes.push('"numberday' ~ $day ~ '": ' ~ $hours);
@@ -1190,6 +1178,15 @@ class Micronomy {
             trace "  $key: $value", $token if $value;
         }
         return Micronomy.get-login(reason => "Vänligen logga in!") unless $token;
+
+        if %parameters<rowCount> {
+            for 1..7 -> $day {
+                my @day-values = (^%parameters<rowCount>).map({
+                    %parameters{"hours-$_-$day"} // "0"
+                });
+                return 422 unless validate-day-hours(@day-values);
+            }
+        }
 
         my $filler = %parameters<filler> // -1;
         my %content;
@@ -1314,7 +1311,7 @@ class Micronomy {
         my ($token, $status);
         if $username and $password {
             trace "login $username ***";
-            if $username eq $password eq "demo" {
+            if is-demo-login($username, $password) {
                 $token = "demo";
             } else {
                 my $url = "$server/$auth-path";
@@ -1341,7 +1338,7 @@ class Micronomy {
                         when X::Cro::HTTP::Error {
                             my $error = (await .response.body)<errorMessage>;
                             $error = $error ?? '[' ~ .response.status ~ '] ' ~ $error !! .message();
-                            $status = uri_encode_component($error);
+                            $status = encode-query-value($error);
 
                             if $status eq "[401] An internal error occurred." and $wait < 9 {
                                 trace "login received '$status' - retrying [{$wait+1}/9]", $token;

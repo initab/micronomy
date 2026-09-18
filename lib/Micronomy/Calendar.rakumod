@@ -1,8 +1,5 @@
 unit module Micronomy::Calendar;
 
-use Micronomy::Cache;
-use Micronomy::Common;
-
 sub initreddaygenerator($requestedyear) {
     #iterates over a year and produces init red days. $requested should be YYYY-MM-DD and a Date class.
     my $date = $requestedyear.truncated-to('year'); #YYYY-01-01 to start iteration on jan frst.
