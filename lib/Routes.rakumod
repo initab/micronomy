@@ -1,5 +1,6 @@
 use Cro::HTTP::Router;
 use Micronomy;
+use Micronomy::Validation;
 
 sub routes() is export {
     route {
@@ -46,20 +47,28 @@ sub routes() is export {
                :$sessionToken is cookie = '',
                :$date = Date.today.truncated-to('month'),
                :$end-date = Date.today.truncated-to('month').later(months => 1).pred, {
-            Micronomy.get-period(token => $sessionToken,
-                                 start-date => Date.new($date),
-                                 end-date => Date.new($end-date),
-                                )
+            if validate-date($date.Str) && validate-date($end-date.Str) {
+                Micronomy.get-period(token => $sessionToken,
+                                     start-date => Date.new($date),
+                                     end-date => Date.new($end-date),
+                                    )
+            } else {
+                redirect "/login", :see-other;
+            }
         }
 
         post -> 'period', :$sessionToken is cookie = '' {
             request-body -> (*%parameters) {
                 my $hours-cache = %parameters<set-cache> ?? 1 !! %parameters<unset-cache> ?? -1 !! 0;
-                Micronomy.get-period(token => $sessionToken,
-                                     start-date => Date.new(%parameters<date>),
-                                     end-date => Date.new(%parameters<end-date>),
-                                     hours-cache => $hours-cache,
-                                    );
+                if validate-date(%parameters<date> // '') && validate-date(%parameters<end-date> // '') {
+                    Micronomy.get-period(token => $sessionToken,
+                                         start-date => Date.new(%parameters<date>),
+                                         end-date => Date.new(%parameters<end-date>),
+                                         hours-cache => $hours-cache,
+                                        );
+                } else {
+                    redirect "/login", :see-other;
+                }
             }
         }
 
