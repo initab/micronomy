@@ -104,7 +104,7 @@ class Micronomy {
                 }
                 default {
                     # #ff4646 = bright red same as the above
-                    $status = '<div class="status" style="color:#ff4646;">' ~ $status ~ '</div>';
+                    $status = '<div class="status" style="color:#ff4646;">' ~ escape-html($status) ~ '</div>';
                 }
             }
 

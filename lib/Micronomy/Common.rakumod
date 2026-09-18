@@ -69,6 +69,17 @@ sub title(Str $job, Str $task --> Str) is export {
     "$task / $job";
 }
 
+my constant %html-escapes = (
+    '&' => '&amp;',
+    '<' => '&lt;',
+    '>' => '&gt;',
+    '"' => '&quot;',
+);
+
+sub escape-html(Str() $s --> Str) is export {
+    $s.subst(/<[&<>"]>/, { %html-escapes{$_} }, :g);
+}
+
 sub get-current-week($date is copy) is export {
     $date = $date ?? Date.new($date) !! Date.today;
     my $week = $date.week-number;
