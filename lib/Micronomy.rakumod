@@ -1179,6 +1179,15 @@ class Micronomy {
         }
         return Micronomy.get-login(reason => "Vänligen logga in!") unless $token;
 
+        if %parameters<rowCount> {
+            for 1..7 -> $day {
+                my @day-values = (^%parameters<rowCount>).map({
+                    %parameters{"hours-$_-$day"} // "0"
+                });
+                return 422 unless validate-day-hours(@day-values);
+            }
+        }
+
         my $filler = %parameters<filler> // -1;
         my %content;
         if (%parameters<rowCount>) {

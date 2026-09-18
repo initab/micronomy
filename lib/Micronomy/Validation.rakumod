@@ -32,6 +32,16 @@ sub validate-hours(Str $value --> Bool) is export {
     return $numeric >= 0 && $numeric <= 24;
 }
 
+sub validate-day-hours(@values --> Bool) is export {
+    my $total = 0;
+    for @values -> $value {
+        my $hours = $value || "0";
+        return False unless validate-hours($hours);
+        $total += +$hours.subst(",", ".");
+    }
+    return $total <= 24;
+}
+
 sub encode-query-value(Str $value --> Str) is export {
     my @parts;
     for $value.encode('utf8').list -> $byte {

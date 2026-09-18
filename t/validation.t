@@ -2,7 +2,7 @@ use Test;
 use lib 'lib';
 use Micronomy::Validation;
 
-plan 34;
+plan 38;
 
 is fix-token("demo"), "demo", "demo token is left unchanged";
 is fix-token(""), "", "empty token stays empty";
@@ -33,6 +33,10 @@ nok validate-hours(""), "empty hours are rejected";
 nok validate-hours(" "), "whitespace-only hours are rejected";
 nok validate-hours("7..5"), "multiple decimal separators are rejected";
 nok validate-hours(".5"), "a missing integer part is rejected";
+ok validate-day-hours(<8 8 8>), "a day totaling 24 hours is accepted";
+nok validate-day-hours(<8 8 8.1>), "a day totaling more than 24 hours is rejected";
+ok validate-day-hours(<7,5 8 8,5>), "comma decimal values are included in the daily total";
+nok validate-day-hours(<8 invalid>), "invalid values are rejected from daily totals";
 is encode-query-value("hello world&x=1"), "hello%20world%26x%3D1", "user input is percent-encoded for URLs";
 is encode-query-value("AZaz09-._~"), "AZaz09-._~", "URL-safe characters are preserved";
 is encode-query-value(""), "", "empty query values stay empty";
