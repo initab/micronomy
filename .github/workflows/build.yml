@@ -93,7 +93,7 @@ jobs:
         if: github.event_name != 'schedule'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Log in to Amazon ECR
@@ -111,7 +111,7 @@ jobs:
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
           REGISTRY: ${{ steps.ecr-login.outputs.registry }}
-          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          REPOSITORY: micronomy
         run: |
           set -euo pipefail
           target="${REGISTRY}/${REPOSITORY}:${GITHUB_SHA}"
